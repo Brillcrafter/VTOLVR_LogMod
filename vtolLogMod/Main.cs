@@ -1,20 +1,168 @@
 ﻿global using static vtolLogMod.Logger;
+using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using HarmonyLib;
 using ModLoader.Framework;
 using ModLoader.Framework.Attributes;
+using UnityEngine;
+using Valve.Newtonsoft.Json;
 
 namespace vtolLogMod;
 
-[ItemId("Brillcrafter.vtolLogMod")] // Harmony ID for your mod, make sure this is unique
+[ItemId("vtolLogMod")] // Harmony ID for your mod, make sure this is unique
 public class Main : VtolMod
 {
     public string ModFolder;
+    
+    private static Main _instance;
+    
+    private Harmony _harmony;
+    
+    private string _saveFolder;
+    
+    private PilotSave _pilotSave;
+    
+    private const string SaveFileName = "pilotLogSave.json";
+    private const string LogFileName = "pilotLog.txt";
+    
 
     private void Awake()
     {
+        _instance = this;
         ModFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         Log($"Awake at {ModFolder}");
+        _harmony = new Harmony("Brillcrafter.vtolLogMod");
+        _saveFolder = Path.Combine(VTResources.gameRootDirectory, "Pilot Log");
+        if (!Directory.Exists(_saveFolder))
+        {
+            Log("vtolLogMod: Pilot Log folder not found");
+            Directory.CreateDirectory(_saveFolder);
+        }
+        if (File.Exists(Path.Combine(_saveFolder, SaveFileName)))
+        {
+            try
+            {
+                Log("vtolLogMod: Pilot Log save file found, loading file");
+                var fileText = File.ReadAllText(Path.Combine(_saveFolder, SaveFileName));
+                _pilotSave = JsonConvert.DeserializeObject<PilotSave>(fileText);
+            }
+            catch (Exception e)
+            {
+                Log($"vtolLogMod: Error loading save file: {e}");
+            }
+        }
+        var assembly = AppDomain.CurrentDomain.GetAssemblies().LastOrDefault(a => a.GetName().Name == "Assembly-CSharp");
+        if (assembly == null)
+        {
+            Log("vtolLogMod: Assembly-CSharp not found");
+            return;
+        }
+        var type = assembly.GetType("Actor");
+        if (type == null)
+        {
+            Log("vtolLogMod: Actor not found");
+            return;
+        }
+        var method = type.GetMethod("H_OnDeath");
+        if (method == null)
+        {
+            Log("vtolLogMod: H_OnDeath not found");
+            return;
+        }
+
+        var ejectType = assembly.GetType("EjectionSeat");
+        if (ejectType == null)
+        {
+            Log("vtolLogMod: EjectionSeat not found");
+            return;
+        }
+        var ejectMethod = ejectType.GetMethod("Eject");
+        if (ejectMethod == null)
+        {
+            Log("vtolLogMod: Eject not found");
+            return;
+        }
+        
+        var playerFlightLoggerType = assembly.GetType("PlayerFlightLogger");
+        if (playerFlightLoggerType == null)
+        {
+            Log("vtolLogMod: PlayerFlightLogger not found");
+            return;
+        }
+        var updateMethod = playerFlightLoggerType.GetMethod("Update");
+        if (updateMethod == null)
+        {
+           Log("vtolLogMod: PFL Update not found"); 
+           return;
+        }
+        _harmony.Patch(updateMethod, new HarmonyMethod(typeof(Main).GetMethod(nameof(UpdatePrefix))));
+        _harmony.Patch(ejectMethod,null ,new HarmonyMethod(typeof(Main).GetMethod(nameof(EjectPostfix))));
+        _harmony.Patch(method, new HarmonyMethod(typeof(Main).GetMethod(nameof(H_OnDeathPrefix))));
+    }
+
+    private static void UpdatePrefix(PlayerFlightLogger __instance)
+    {
+        if (__instance.recording && __instance.flightInfo.isLanded != __instance.isLanded && Time.time - __instance.landedChangeTime > 3f)
+        {
+            var isLanded = __instance.flightInfo.isLanded;
+            if (isLanded)
+            {
+                _instance._pilotSave.NumberOfLandings++;
+                return;
+            }
+            _instance._pilotSave.NumberOfTakeoffs++;
+        }
+    }
+
+    private static void EjectPostfix()
+    {
+        _instance._pilotSave.NumberOfEjections++;
+    }
+    
+    private static void H_OnDeathPrefix(Actor __instance)
+    {
+        if (__instance._gotIsHuman)
+        {
+            Log("Actor is Human");
+            _instance._pilotSave.NumberOfDeaths++;
+            return;
+        }
+
+        if (!__instance.h.killedByActor._gotIsHuman)
+        {
+            Log("killing Actor is not Human");
+            return;
+        }
+        switch (__instance.role)
+        {
+            case Actor.Roles.None:
+                Log("Actor is None");
+                break;
+            case Actor.Roles.Air:
+                Log("Actor is Air");
+                _instance._pilotSave.A2AKills++;
+                break;
+            case Actor.Roles.Ground:
+                Log("Actor is Ground");
+                _instance._pilotSave.A2GKills++;
+                break;
+            case Actor.Roles.GroundArmor:
+                _instance._pilotSave.A2GKills++;
+                Log("Actor is GroundArmor");
+                break;
+            case Actor.Roles.Missile:
+                //Log("Actor is Missile");
+                break;
+            case Actor.Roles.Ship:
+                Log("Actor is Ship");
+                _instance._pilotSave.A2ShipKills++;
+                break;
+            default:
+                Log("Actor is default, something wrong has happened");
+                break;
+        }
     }
 
     public override void UnLoad()
