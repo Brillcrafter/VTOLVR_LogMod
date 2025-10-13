@@ -3,11 +3,13 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using HarmonyLib;
 using ModLoader.Framework;
 using ModLoader.Framework.Attributes;
 using UnityEngine;
 using Valve.Newtonsoft.Json;
+using VTOLVR.Multiplayer;
 
 namespace vtolLogMod;
 
@@ -25,6 +27,7 @@ public class Main : VtolMod
     private PilotSave _pilotSave;
     
     private const string SaveFileName = "pilotLogSave.json";
+    private const string BackupSaveFileName = "backupPilotLogSave.json";
     private const string LogFileName = "pilotLog.txt";
     
 
@@ -50,7 +53,8 @@ public class Main : VtolMod
             }
             catch (Exception e)
             {
-                Log($"vtolLogMod: Error loading save file: {e}");
+                Log($"vtolLogMod: Error loading save file: {e}\n Renaming LogFile to " + BackupSaveFileName);
+                File.Move(SaveFileName, BackupSaveFileName);
             }
         }
         var assembly = AppDomain.CurrentDomain.GetAssemblies().LastOrDefault(a => a.GetName().Name == "Assembly-CSharp");
@@ -97,32 +101,83 @@ public class Main : VtolMod
            Log("vtolLogMod: PFL Update not found"); 
            return;
         }
+        var endMissionType = assembly.GetType("EndMission");
+        if (endMissionType == null)
+        {
+            Log("vtolLogMod: EndMission not found");
+            return;
+        }
+        var endMissionOnFinalWinner = endMissionType.GetMethod("EndMission_OnFinalWinner");
+        if (endMissionOnFinalWinner == null)
+        {
+            Log("vtolLogMod: EndMission_OnFinalWinner not found");
+            return;
+        }
+
+        _harmony.Patch(endMissionOnFinalWinner,
+            new HarmonyMethod(typeof(Main).GetMethod(nameof(EndMissionOnFinalWinnerPrefix))));
         _harmony.Patch(updateMethod, new HarmonyMethod(typeof(Main).GetMethod(nameof(UpdatePrefix))));
         _harmony.Patch(ejectMethod,null ,new HarmonyMethod(typeof(Main).GetMethod(nameof(EjectPostfix))));
         _harmony.Patch(method, new HarmonyMethod(typeof(Main).GetMethod(nameof(H_OnDeathPrefix))));
     }
 
+    private static void EndMissionOnFinalWinnerPrefix(Teams obj)
+    {
+        if (VTOLMPUtils.IsMultiplayer()) return;
+        var teams = Teams.Allied;
+        if (FlightSceneManager.instance.playerActor)
+        {
+            teams = FlightSceneManager.instance.playerActor.team;
+        }
+        if (obj == teams)
+        {
+            _instance._pilotSave.NumberOfSuccessfulMissions++;
+        }
+        else
+        {
+            _instance._pilotSave.NumberOfFailedMissions++;
+        }
+        SaveSynchronous();
+    }
+
+    private static void SaveSynchronous()
+    {
+        var output = JsonConvert.SerializeObject(_instance._pilotSave);
+        SaveAsynchronous(output);
+    }
+
+    private static async Task SaveAsynchronous(string saveOutput)
+    {
+        await Task.Run(() =>
+        {
+            Log("vtolLogMod: Saving Pilot Log");
+            File.WriteAllText(_instance._saveFolder, saveOutput);
+        });
+    }
+    
     private static void UpdatePrefix(PlayerFlightLogger __instance)
     {
-        if (__instance.recording && __instance.flightInfo.isLanded != __instance.isLanded && Time.time - __instance.landedChangeTime > 3f)
+        if (VTOLMPUtils.IsMultiplayer()) return;
+        if (!__instance.recording || __instance.flightInfo.isLanded == __instance.isLanded ||
+            !(Time.time - __instance.landedChangeTime > 3f)) return;
+        var isLanded = __instance.flightInfo.isLanded;
+        if (isLanded)
         {
-            var isLanded = __instance.flightInfo.isLanded;
-            if (isLanded)
-            {
-                _instance._pilotSave.NumberOfLandings++;
-                return;
-            }
-            _instance._pilotSave.NumberOfTakeoffs++;
+            _instance._pilotSave.NumberOfLandings++;
+            return;
         }
+        _instance._pilotSave.NumberOfTakeoffs++;
     }
 
     private static void EjectPostfix()
     {
+        if (VTOLMPUtils.IsMultiplayer()) return;
         _instance._pilotSave.NumberOfEjections++;
     }
     
     private static void H_OnDeathPrefix(Actor __instance)
     {
+        if (VTOLMPUtils.IsMultiplayer()) return;
         if (__instance._gotIsHuman)
         {
             Log("Actor is Human");
