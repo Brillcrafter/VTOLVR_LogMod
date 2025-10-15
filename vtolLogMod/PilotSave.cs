@@ -1,6 +1,6 @@
 ﻿namespace vtolLogMod;
 
-public class PilotSave(int a2AKills, int a2GKills, int a2ShipKills ,int numberOfTakeoffs ,int numberOfLandings, 
+public abstract class PilotSave(int a2AKills, int a2GKills, int a2ShipKills ,int numberOfTakeoffs ,int numberOfLandings, 
     int numberOfEjections, int numberOfDeaths, int numberOfSuccessfulMissions, int numberOfFailedMissions)
 {
     public int A2AKills = a2AKills;

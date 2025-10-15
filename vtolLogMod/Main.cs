@@ -57,18 +57,7 @@ public class Main : VtolMod
                 File.Move(SaveFileName, BackupSaveFileName);
             }
         }
-        var assembly = AppDomain.CurrentDomain.GetAssemblies().LastOrDefault(a => a.GetName().Name == "Assembly-CSharp");
-        if (assembly == null)
-        {
-            Log("vtolLogMod: Assembly-CSharp not found");
-            return;
-        }
-        var type = assembly.GetType("Actor");
-        if (type == null)
-        {
-            Log("vtolLogMod: Actor not found");
-            return;
-        }
+        var type = typeof(Actor);
         var method = type.GetMethod("H_OnDeath");
         if (method == null)
         {
@@ -76,38 +65,23 @@ public class Main : VtolMod
             return;
         }
 
-        var ejectType = assembly.GetType("EjectionSeat");
-        if (ejectType == null)
-        {
-            Log("vtolLogMod: EjectionSeat not found");
-            return;
-        }
-        var ejectMethod = ejectType.GetMethod("Eject");
+        var ejectType = typeof(EjectionSeat);
+        var ejectMethod = ejectType.GetMethod(nameof(EjectionSeat.Eject));
         if (ejectMethod == null)
         {
             Log("vtolLogMod: Eject not found");
             return;
         }
         
-        var playerFlightLoggerType = assembly.GetType("PlayerFlightLogger");
-        if (playerFlightLoggerType == null)
-        {
-            Log("vtolLogMod: PlayerFlightLogger not found");
-            return;
-        }
-        var updateMethod = playerFlightLoggerType.GetMethod("Update");
+        var playerFlightLoggerType = typeof(PlayerFlightLogger);
+        var updateMethod = playerFlightLoggerType.GetMethod(nameof(PlayerFlightLogger.Update));
         if (updateMethod == null)
         {
            Log("vtolLogMod: PFL Update not found"); 
            return;
         }
-        var endMissionType = assembly.GetType("EndMission");
-        if (endMissionType == null)
-        {
-            Log("vtolLogMod: EndMission not found");
-            return;
-        }
-        var endMissionOnFinalWinner = endMissionType.GetMethod("EndMission_OnFinalWinner");
+        var endMissionType = typeof(EndMission);
+        var endMissionOnFinalWinner = endMissionType.GetMethod(nameof(EndMission.EndMission_OnFinalWinner));
         if (endMissionOnFinalWinner == null)
         {
             Log("vtolLogMod: EndMission_OnFinalWinner not found");
