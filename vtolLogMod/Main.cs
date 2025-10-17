@@ -27,6 +27,8 @@ public class Main : VtolMod
     
     private PilotSave _pilotSave;
     
+    private LogOutput _logOutput;
+    
     private const string SaveFileName = "pilotLogSave.json";
     private const string BackupSaveFileName = "backupPilotLogSave.json";
     public const string LogFileName = "pilotLog.txt";
@@ -39,6 +41,7 @@ public class Main : VtolMod
         Log($"Awake at {ModFolder}");
         _harmony = new Harmony("Brillcrafter.vtolLogMod");
         saveFolder = Path.Combine(VTResources.gameRootDirectory, "Pilot Log");
+        _logOutput = new LogOutput();
         if (!Directory.Exists(saveFolder))
         {
             Log("vtolLogMod: Pilot Log folder not found");
@@ -59,35 +62,16 @@ public class Main : VtolMod
             }
         }
         var type = typeof(Actor);
-        var method = type.GetMethod("H_OnDeath");
-        if (method == null)
-        {
-            Log("vtolLogMod: H_OnDeath not found");
-            return;
-        }
+        var method = type.GetMethod(nameof(Actor.H_OnDeath));
 
         var ejectType = typeof(EjectionSeat);
         var ejectMethod = ejectType.GetMethod(nameof(EjectionSeat.Eject));
-        if (ejectMethod == null)
-        {
-            Log("vtolLogMod: Eject not found");
-            return;
-        }
         
         var playerFlightLoggerType = typeof(PlayerFlightLogger);
         var updateMethod = playerFlightLoggerType.GetMethod(nameof(PlayerFlightLogger.Update));
-        if (updateMethod == null)
-        {
-           Log("vtolLogMod: PFL Update not found"); 
-           return;
-        }
+        
         var endMissionType = typeof(EndMission);
         var endMissionOnFinalWinner = endMissionType.GetMethod(nameof(EndMission.EndMission_OnFinalWinner));
-        if (endMissionOnFinalWinner == null)
-        {
-            Log("vtolLogMod: EndMission_OnFinalWinner not found");
-            return;
-        }
 
         _harmony.Patch(endMissionOnFinalWinner,
             new HarmonyMethod(typeof(Main).GetMethod(nameof(EndMissionOnFinalWinnerPrefix))));
@@ -113,9 +97,10 @@ public class Main : VtolMod
             Instance._pilotSave.NumberOfFailedMissions++;
         }
         SaveSynchronous();
+        Instance._logOutput.WriteText(Instance._pilotSave);
     }
 
-    public static void SaveSynchronous()
+    private static void SaveSynchronous()
     {
         var output = JsonConvert.SerializeObject(Instance._pilotSave);
         SaveAsynchronous(output);
@@ -155,42 +140,42 @@ public class Main : VtolMod
         if (VTOLMPUtils.IsMultiplayer()) return;
         if (__instance._gotIsHuman)
         {
-            Log("Actor is Human");
+            //Log("Actor is Human");
             Instance._pilotSave.NumberOfDeaths++;
             return;
         }
 
         if (!__instance.h.killedByActor._gotIsHuman)
         {
-            Log("killing Actor is not Human");
+            //Log("killing Actor is not Human");
             return;
         }
         switch (__instance.role)
         {
             case Actor.Roles.None:
-                Log("Actor is None");
+                //Log("Actor is None");
                 break;
             case Actor.Roles.Air:
-                Log("Actor is Air");
+                //Log("Actor is Air");
                 Instance._pilotSave.A2AKills++;
                 break;
             case Actor.Roles.Ground:
-                Log("Actor is Ground");
+                //Log("Actor is Ground");
                 Instance._pilotSave.A2GKills++;
                 break;
             case Actor.Roles.GroundArmor:
                 Instance._pilotSave.A2GKills++;
-                Log("Actor is GroundArmor");
+                //Log("Actor is GroundArmor");
                 break;
             case Actor.Roles.Missile:
                 //Log("Actor is Missile");
                 break;
             case Actor.Roles.Ship:
-                Log("Actor is Ship");
+                //Log("Actor is Ship");
                 Instance._pilotSave.A2ShipKills++;
                 break;
             default:
-                Log("Actor is default, something wrong has happened");
+                Log("vtolLogMod: Actor is default, something wrong has happened");
                 break;
         }
     }
@@ -199,5 +184,7 @@ public class Main : VtolMod
     {
         // Destroy any objects
         SaveSynchronous();
+        Instance._logOutput.WriteText(_pilotSave);
+        _logOutput.FinishImage();
     }
 }
