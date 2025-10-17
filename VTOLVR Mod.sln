@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vtolLogMod", "vtolLogMod\vtolLogMod.csproj", "{7D8391E0-DF12-4F93-A4F0-786731E593E6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "imageWritingTest", "imageWritingTest\imageWritingTest.csproj", "{8836553E-9435-452F-B877-C010E7717B08}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{7D8391E0-DF12-4F93-A4F0-786731E593E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7D8391E0-DF12-4F93-A4F0-786731E593E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7D8391E0-DF12-4F93-A4F0-786731E593E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8836553E-9435-452F-B877-C010E7717B08}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8836553E-9435-452F-B877-C010E7717B08}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8836553E-9435-452F-B877-C010E7717B08}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8836553E-9435-452F-B877-C010E7717B08}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

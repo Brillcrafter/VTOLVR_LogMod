@@ -1,0 +1,22 @@
+﻿Total Missions:
+
+Successful Missions:
+
+Failed Missions:
+
+Total Deaths:
+
+Total Ejections:
+
+Total Takeoffs:
+
+Total Landings:
+
+Total Kills:
+
+Total A2A Kills:
+
+Total A2G Kills:
+
+Total Ship Kills:
+

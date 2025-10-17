@@ -8,6 +8,7 @@ using HarmonyLib;
 using ModLoader.Framework;
 using ModLoader.Framework.Attributes;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Valve.Newtonsoft.Json;
 using VTOLVR.Multiplayer;
 
@@ -18,37 +19,37 @@ public class Main : VtolMod
 {
     public string ModFolder;
     
-    private static Main _instance;
+    public static Main Instance;
     
     private Harmony _harmony;
     
-    private string _saveFolder;
+    public string saveFolder;
     
     private PilotSave _pilotSave;
     
     private const string SaveFileName = "pilotLogSave.json";
     private const string BackupSaveFileName = "backupPilotLogSave.json";
-    private const string LogFileName = "pilotLog.txt";
+    public const string LogFileName = "pilotLog.txt";
     
 
     private void Awake()
     {
-        _instance = this;
+        Instance = this;
         ModFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         Log($"Awake at {ModFolder}");
         _harmony = new Harmony("Brillcrafter.vtolLogMod");
-        _saveFolder = Path.Combine(VTResources.gameRootDirectory, "Pilot Log");
-        if (!Directory.Exists(_saveFolder))
+        saveFolder = Path.Combine(VTResources.gameRootDirectory, "Pilot Log");
+        if (!Directory.Exists(saveFolder))
         {
             Log("vtolLogMod: Pilot Log folder not found");
-            Directory.CreateDirectory(_saveFolder);
+            Directory.CreateDirectory(saveFolder);
         }
-        if (File.Exists(Path.Combine(_saveFolder, SaveFileName)))
+        if (File.Exists(Path.Combine(saveFolder, SaveFileName)))
         {
             try
             {
                 Log("vtolLogMod: Pilot Log save file found, loading file");
-                var fileText = File.ReadAllText(Path.Combine(_saveFolder, SaveFileName));
+                var fileText = File.ReadAllText(Path.Combine(saveFolder, SaveFileName));
                 _pilotSave = JsonConvert.DeserializeObject<PilotSave>(fileText);
             }
             catch (Exception e)
@@ -105,18 +106,18 @@ public class Main : VtolMod
         }
         if (obj == teams)
         {
-            _instance._pilotSave.NumberOfSuccessfulMissions++;
+            Instance._pilotSave.NumberOfSuccessfulMissions++;
         }
         else
         {
-            _instance._pilotSave.NumberOfFailedMissions++;
+            Instance._pilotSave.NumberOfFailedMissions++;
         }
         SaveSynchronous();
     }
 
-    private static void SaveSynchronous()
+    public static void SaveSynchronous()
     {
-        var output = JsonConvert.SerializeObject(_instance._pilotSave);
+        var output = JsonConvert.SerializeObject(Instance._pilotSave);
         SaveAsynchronous(output);
     }
 
@@ -125,7 +126,7 @@ public class Main : VtolMod
         await Task.Run(() =>
         {
             Log("vtolLogMod: Saving Pilot Log");
-            File.WriteAllText(_instance._saveFolder, saveOutput);
+            File.WriteAllText(Instance.saveFolder, saveOutput);
         });
     }
     
@@ -137,16 +138,16 @@ public class Main : VtolMod
         var isLanded = __instance.flightInfo.isLanded;
         if (isLanded)
         {
-            _instance._pilotSave.NumberOfLandings++;
+            Instance._pilotSave.NumberOfLandings++;
             return;
         }
-        _instance._pilotSave.NumberOfTakeoffs++;
+        Instance._pilotSave.NumberOfTakeoffs++;
     }
 
     private static void EjectPostfix()
     {
         if (VTOLMPUtils.IsMultiplayer()) return;
-        _instance._pilotSave.NumberOfEjections++;
+        Instance._pilotSave.NumberOfEjections++;
     }
     
     private static void H_OnDeathPrefix(Actor __instance)
@@ -155,7 +156,7 @@ public class Main : VtolMod
         if (__instance._gotIsHuman)
         {
             Log("Actor is Human");
-            _instance._pilotSave.NumberOfDeaths++;
+            Instance._pilotSave.NumberOfDeaths++;
             return;
         }
 
@@ -171,14 +172,14 @@ public class Main : VtolMod
                 break;
             case Actor.Roles.Air:
                 Log("Actor is Air");
-                _instance._pilotSave.A2AKills++;
+                Instance._pilotSave.A2AKills++;
                 break;
             case Actor.Roles.Ground:
                 Log("Actor is Ground");
-                _instance._pilotSave.A2GKills++;
+                Instance._pilotSave.A2GKills++;
                 break;
             case Actor.Roles.GroundArmor:
-                _instance._pilotSave.A2GKills++;
+                Instance._pilotSave.A2GKills++;
                 Log("Actor is GroundArmor");
                 break;
             case Actor.Roles.Missile:
@@ -186,7 +187,7 @@ public class Main : VtolMod
                 break;
             case Actor.Roles.Ship:
                 Log("Actor is Ship");
-                _instance._pilotSave.A2ShipKills++;
+                Instance._pilotSave.A2ShipKills++;
                 break;
             default:
                 Log("Actor is default, something wrong has happened");
@@ -197,5 +198,6 @@ public class Main : VtolMod
     public override void UnLoad()
     {
         // Destroy any objects
+        SaveSynchronous();
     }
 }
